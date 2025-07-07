@@ -206,7 +206,7 @@ def main():
         else:
             display_message(message, is_user=False)
     
-    # Chat input - this is the key fix
+    # Chat input - simplified approach
     if prompt := st.chat_input("Ask me anything..."):
         # Add user message
         user_message = {
@@ -215,9 +215,6 @@ def main():
             "timestamp": datetime.now()
         }
         st.session_state.messages.append(user_message)
-        
-        # Display user message immediately
-        display_message(user_message, is_user=True)
         
         # Get AI response
         with st.spinner("🤔 Thinking..."):
@@ -230,12 +227,6 @@ def main():
             "timestamp": datetime.now()
         }
         st.session_state.messages.append(ai_message)
-        
-        # Display AI response immediately
-        display_message(ai_message, is_user=False)
-        
-        # Rerun to clear the input and show updated chat
-        st.rerun()
     
     # Footer
     st.markdown("---")
