@@ -69,6 +69,8 @@ def initialize_session_state():
         st.session_state.api_key = ""
     if "api_key_verified" not in st.session_state:
         st.session_state.api_key_verified = False
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
 
 def verify_api_key(api_key):
     """Verify if the API key is valid"""
@@ -175,6 +177,7 @@ def main():
             st.session_state.messages = [
                 {"role": "assistant", "content": "Hello! I'm your AI assistant. How can I help you today?", "timestamp": datetime.now()}
             ]
+            st.session_state.processing = False
             st.rerun()
         
         # Model info
@@ -206,27 +209,37 @@ def main():
         else:
             display_message(message, is_user=False)
     
-    # Chat input - simplified approach
-    if prompt := st.chat_input("Ask me anything..."):
-        # Add user message
-        user_message = {
-            "role": "user",
-            "content": prompt,
-            "timestamp": datetime.now()
-        }
-        st.session_state.messages.append(user_message)
-        
-        # Get AI response
-        with st.spinner("🤔 Thinking..."):
-            ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
-        
-        # Add AI response
-        ai_message = {
-            "role": "assistant",
-            "content": ai_response,
-            "timestamp": datetime.now()
-        }
-        st.session_state.messages.append(ai_message)
+    # Chat input - with proper loop prevention
+    if prompt := st.chat_input("Ask me anything...", disabled=st.session_state.processing):
+        if not st.session_state.processing:
+            # Prevent multiple processing
+            st.session_state.processing = True
+            
+            # Add user message
+            user_message = {
+                "role": "user",
+                "content": prompt,
+                "timestamp": datetime.now()
+            }
+            st.session_state.messages.append(user_message)
+            
+            # Get AI response
+            with st.spinner("🤔 Thinking..."):
+                ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
+            
+            # Add AI response
+            ai_message = {
+                "role": "assistant",
+                "content": ai_response,
+                "timestamp": datetime.now()
+            }
+            st.session_state.messages.append(ai_message)
+            
+            # Reset processing flag
+            st.session_state.processing = False
+            
+            # Rerun to show the new messages
+            st.rerun()
     
     # Footer
     st.markdown("---")
