@@ -69,6 +69,8 @@ def initialize_session_state():
         st.session_state.api_key = ""
     if "api_key_verified" not in st.session_state:
         st.session_state.api_key_verified = False
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
 
 def verify_api_key(api_key):
     """Verify if the API key is valid"""
@@ -175,6 +177,7 @@ def main():
             st.session_state.messages = [
                 {"role": "assistant", "content": "Hello! I'm your AI assistant. How can I help you today?", "timestamp": datetime.now()}
             ]
+            st.session_state.processing = False
             st.rerun()
         
         # Model info
@@ -212,49 +215,45 @@ def main():
     # Chat input
     st.markdown("---")
     
-    # Create columns for input and button
-    col1, col2 = st.columns([4, 1])
+    # Use st.chat_input for better handling
+    if prompt := st.chat_input("Ask me anything...", disabled=st.session_state.processing):
+        if not st.session_state.processing:
+            # Set processing flag to prevent multiple submissions
+            st.session_state.processing = True
+            
+            # Add user message to chat
+            user_message = {
+                "role": "user",
+                "content": prompt,
+                "timestamp": datetime.now()
+            }
+            st.session_state.messages.append(user_message)
+            
+            # Display user message immediately
+            with chat_container:
+                display_message(user_message, is_user=True)
+            
+            # Get AI response
+            with st.spinner("🤔 Thinking..."):
+                ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
+            
+            # Add AI response to chat
+            ai_message = {
+                "role": "assistant",
+                "content": ai_response,
+                "timestamp": datetime.now()
+            }
+            st.session_state.messages.append(ai_message)
+            
+            # Reset processing flag
+            st.session_state.processing = False
+            
+            # Rerun to update the display
+            st.rerun()
     
-    with col1:
-        user_input = st.text_input(
-            "Type your message:",
-            key="user_input",
-            placeholder="Ask me anything...",
-            label_visibility="collapsed"
-        )
-    
-    with col2:
-        send_button = st.button("Send 📤", use_container_width=True)
-    
-    # Handle user input
-    if send_button and user_input:
-        # Add user message to chat
-        user_message = {
-            "role": "user",
-            "content": user_input,
-            "timestamp": datetime.now()
-        }
-        st.session_state.messages.append(user_message)
-        
-        # Get AI response
-        with st.spinner("🤔 Thinking..."):
-            ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
-        
-        # Add AI response to chat
-        ai_message = {
-            "role": "assistant",
-            "content": ai_response,
-            "timestamp": datetime.now()
-        }
-        st.session_state.messages.append(ai_message)
-        
-        # Clear input and rerun
-        st.rerun()
-    
-    # Handle Enter key press
-    if user_input and not send_button:
-        # This is a workaround for Enter key handling in Streamlit
-        pass
+    # Show processing status
+    if st.session_state.processing:
+        st.info("🔄 Processing your message...")
     
     # Footer
     st.markdown("---")
