@@ -69,10 +69,6 @@ def initialize_session_state():
         st.session_state.api_key = ""
     if "api_key_verified" not in st.session_state:
         st.session_state.api_key_verified = False
-    if "last_processed_message" not in st.session_state:
-        st.session_state.last_processed_message = ""
-    if "waiting_for_response" not in st.session_state:
-        st.session_state.waiting_for_response = False
 
 def verify_api_key(api_key):
     """Verify if the API key is valid"""
@@ -179,8 +175,6 @@ def main():
             st.session_state.messages = [
                 {"role": "assistant", "content": "Hello! I'm your AI assistant. How can I help you today?", "timestamp": datetime.now()}
             ]
-            st.session_state.last_processed_message = ""
-            st.session_state.waiting_for_response = False
             st.rerun()
         
         # Model info
@@ -206,69 +200,42 @@ def main():
         return
     
     # Display chat messages
-    chat_container = st.container()
+    for message in st.session_state.messages:
+        if message["role"] == "user":
+            display_message(message, is_user=True)
+        else:
+            display_message(message, is_user=False)
     
-    with chat_container:
-        for message in st.session_state.messages:
-            if message["role"] == "user":
-                display_message(message, is_user=True)
-            else:
-                display_message(message, is_user=False)
-    
-    # Chat input
-    st.markdown("---")
-    
-    # Handle user input with proper deduplication
-    if prompt := st.chat_input("Ask me anything...", disabled=st.session_state.waiting_for_response):
-        # Check if this is a new message (not a duplicate due to rerun)
-        if prompt != st.session_state.last_processed_message and not st.session_state.waiting_for_response:
-            # Set flags to prevent duplicate processing
-            st.session_state.last_processed_message = prompt
-            st.session_state.waiting_for_response = True
-            
-            # Add user message to chat
-            user_message = {
-                "role": "user",
-                "content": prompt,
-                "timestamp": datetime.now()
-            }
-            st.session_state.messages.append(user_message)
-            
-            # Force immediate display update
-            st.rerun()
-    
-    # Process the response if we're waiting for one
-    if st.session_state.waiting_for_response and st.session_state.last_processed_message:
-        # Check if we haven't already processed this message
-        last_message = st.session_state.messages[-1] if st.session_state.messages else None
+    # Chat input - this is the key fix
+    if prompt := st.chat_input("Ask me anything..."):
+        # Add user message
+        user_message = {
+            "role": "user",
+            "content": prompt,
+            "timestamp": datetime.now()
+        }
+        st.session_state.messages.append(user_message)
         
-        # Only process if the last message is from user and we haven't added a response yet
-        if (last_message and 
-            last_message["role"] == "user" and 
-            last_message["content"] == st.session_state.last_processed_message):
-            
-            # Get AI response
-            with st.spinner("🤔 Thinking..."):
-                ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
-            
-            # Add AI response to chat
-            ai_message = {
-                "role": "assistant",
-                "content": ai_response,
-                "timestamp": datetime.now()
-            }
-            st.session_state.messages.append(ai_message)
-            
-            # Reset flags for next message
-            st.session_state.waiting_for_response = False
-            st.session_state.last_processed_message = ""
-            
-            # Update display
-            st.rerun()
-    
-    # Show processing status
-    if st.session_state.waiting_for_response:
-        st.info("🔄 Processing your message...")
+        # Display user message immediately
+        display_message(user_message, is_user=True)
+        
+        # Get AI response
+        with st.spinner("🤔 Thinking..."):
+            ai_response = get_ai_response(st.session_state.messages, st.session_state.api_key)
+        
+        # Add AI response
+        ai_message = {
+            "role": "assistant",
+            "content": ai_response,
+            "timestamp": datetime.now()
+        }
+        st.session_state.messages.append(ai_message)
+        
+        # Display AI response immediately
+        display_message(ai_message, is_user=False)
+        
+        # Rerun to clear the input and show updated chat
+        st.rerun()
     
     # Footer
     st.markdown("---")
